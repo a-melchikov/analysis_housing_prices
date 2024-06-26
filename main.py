@@ -137,7 +137,7 @@ def get_about_apartments(driver):
 
         # Спускаемся вниз до кнопки и нажимаем ее
         ActionChains(driver).move_to_element(button).perform()
-        time.sleep(3)
+        time.sleep(1)
         button.click()
 
     except NoSuchElementException:
@@ -194,7 +194,7 @@ if __name__ == "__main__":
 
     base_url: str = "https://orenburg.domclick.ru/search?"
     zones: dict[str, int] = {
-        "дзержиский": 40840272,
+        "дзержинский": 40840272,
         "промышленный": 40842569,
         "ленинский": 40842379,
         "центральный": 40842421,
@@ -209,17 +209,16 @@ if __name__ == "__main__":
     }
 
     cookies_accepted = False
+    filename = "ленинский_urls_200.txt"
 
-    get_urls_zones(driver, params, zones, base_url)
-    exit()
     try:
-        if os.path.isfile("urls.txt"):
-            logger.info("Чтение ссылок из файла urls.txt")
-            urls = read_from_txt("urls.txt")
+        if os.path.isfile(filename):
+            logger.info("Чтение ссылок из файла %s", filename)
+            urls = read_from_txt(filename)
         else:
             logger.info("Получение ссылок с сайта")
             urls: set[str] = get_urls_apartments(driver, base_url, params, 0, 300)
-            save_to_txt(urls, "urls.txt")
+            save_to_txt(urls, filename)
 
         for url in urls:
             driver.get(url)
@@ -238,13 +237,14 @@ if __name__ == "__main__":
                     accept_cookie_button.click()
                     time.sleep(1)
                     cookies_accepted = True
-
                 data = {
                     "Ссылка": url,
                 }
                 data.update(get_price(driver))
                 data.update(get_about_apartments(driver))
                 data.update(get_building_info(driver))
+                if any(filename.startswith(x) for x in zones):
+                    data.update({"Район": f"{filename.split('_', maxsplit=1)[0]}"})
                 print(data)
 
             except Exception as e:
