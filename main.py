@@ -1,11 +1,14 @@
 from logging import Logger
 import os
+import re
 import time
 from typing import Any
 from selenium.webdriver.chrome.webdriver import WebDriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
+from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.action_chains import ActionChains
 from logging_config import LogConfig, LogLevel, LoggerSetup
 from web_driver_setup import WebDriverSetup
 
@@ -96,8 +99,63 @@ def read_from_txt(filename: str) -> set[str]:
     return urls
 
 
+def get_price(driver: WebDriver) -> tuple[str, str]:
+    price_element = driver.find_element(By.CLASS_NAME, "JfVCK").find_element(
+        By.TAG_NAME, "span"
+    )
+    price = re.sub(r"\s+", "", price_element.get_attribute("textContent").strip())
+    sqm_price_element = driver.find_element(By.CLASS_NAME, "xp7iu")
+    sqm_price = re.sub(
+        r"\s+", "", sqm_price_element.get_attribute("textContent").strip()
+    )
+
+    data = {
+        "Цена": price,
+        "Цена за квадрат": sqm_price,
+    }
+    return data
+
+
+def get_gallery_footer(driver):
+    gallery_footer = driver.find_element(By.CLASS_NAME, "gallery-footer-90b-17-1-3")
+    li_elements = gallery_footer.find_elements(By.TAG_NAME, "li")
+    data = {}
+    for elem in li_elements:
+        key = elem.find_element(By.TAG_NAME, "span").text
+        value = elem.find_element(By.TAG_NAME, "div").text
+        data[key] = value
+
+    return data
+
+
+def get_about_apartments(driver):
+    try:
+        # Ищем кнопку "Показать полностью"
+        button = driver.find_element(
+            By.XPATH, "//button[@data-e2e-id='detail-spoiler']"
+        )
+
+        # Спускаемся вниз до кнопки и нажимаем ее
+        ActionChains(driver).move_to_element(button).perform()
+        time.sleep(3)
+        button.click()
+
+    except NoSuchElementException:
+        logger.warning("Кнопка 'Показать полностью' не найдена на странице")
+
+    about_apartment = driver.find_element(By.XPATH, '//div[@data-e2e-id="О квартире"]')
+
+    list_items = about_apartment.find_elements(By.TAG_NAME, "li")
+    data = {}
+    for item in list_items:
+        key = item.get_attribute("data-e2e-id")
+        value = item.text[len(key) :].strip()
+        data[key] = value
+    return data
+
+
 if __name__ == "__main__":
-    web_driver_setup = WebDriverSetup(headless=True)
+    web_driver_setup = WebDriverSetup(headless=False)
     driver: WebDriver = web_driver_setup.setup_driver()
 
     base_url: str = "https://orenburg.domclick.ru/search?"
@@ -109,6 +167,8 @@ if __name__ == "__main__":
         "rooms": ["1", "2", "3", "4+", "st"],
         "offset": 0,
     }
+
+    cookies_accepted = False
 
     try:
         if os.path.isfile("urls.txt"):
@@ -126,16 +186,26 @@ if __name__ == "__main__":
                 WebDriverWait(driver, 10).until(
                     EC.presence_of_element_located((By.CLASS_NAME, "OzY5o"))
                 )
-                gallery_footer = driver.find_element(
-                    By.CLASS_NAME, "gallery-footer-90b-17-1-3"
-                )
-                li_elements = gallery_footer.find_elements(By.TAG_NAME, "li")
-                for elem in li_elements:
-                    print(elem.text, end=" ")
-                print()
+
+                data = {}
+
+                if not cookies_accepted:
+                    accept_cookie_button = driver.find_element(
+                        By.XPATH, "//button[@data-e2e-id='cookie-alert-accept']"
+                    )
+                    accept_cookie_button.click()
+                    time.sleep(3)
+                    cookies_accepted = True
+
+                data = {
+                    "Ссылка": url,
+                }
+                data.update(get_price(driver))
+                data.update(get_about_apartments(driver))
+                print(data)
+
             except Exception as e:
                 logger.error("Ошибка при обработке ссылки на квартиру %s: %s", url, e)
-            time.sleep(3)
 
     except Exception as e:
         logger.critical("Произошла ошибка: %s", e)
