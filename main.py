@@ -154,6 +154,28 @@ def get_about_apartments(driver):
     return data
 
 
+def get_building_info(driver):
+    data = {}
+    try:
+        building_info = driver.find_element(By.CLASS_NAME, "M9M9q")
+        list_items = building_info.find_elements(By.TAG_NAME, "li")
+
+        for item in list_items:
+            try:
+                key = item.get_attribute("data-e2e-id")
+                value = item.text[len(key) :].strip()
+                data[key] = value
+            except Exception as e:
+                logger.error("Ошибка при обработке элемента списка: %s", e)
+                continue
+    except NoSuchElementException:
+        logger.warning("Элемент с классом 'M9M9q' не найден на странице")
+    except Exception as e:
+        logger.error("Произошла ошибка при попытке получить информацию о здании: %s", e)
+
+    return data
+
+
 if __name__ == "__main__":
     web_driver_setup = WebDriverSetup(headless=False)
     driver: WebDriver = web_driver_setup.setup_driver()
@@ -194,7 +216,7 @@ if __name__ == "__main__":
                         By.XPATH, "//button[@data-e2e-id='cookie-alert-accept']"
                     )
                     accept_cookie_button.click()
-                    time.sleep(3)
+                    time.sleep(1)
                     cookies_accepted = True
 
                 data = {
@@ -202,6 +224,7 @@ if __name__ == "__main__":
                 }
                 data.update(get_price(driver))
                 data.update(get_about_apartments(driver))
+                data.update(get_building_info(driver))
                 print(data)
 
             except Exception as e:
