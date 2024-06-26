@@ -176,11 +176,29 @@ def get_building_info(driver):
     return data
 
 
+def get_urls_zones(
+    driver: WebDriver, params: dict[str, Any], zones: dict[str, int], base_url: str
+) -> None:
+    logger.info("Начинаем собирать данные для районов: %s", zones)
+    for k, v in zones.items():
+        params["aids"] = v
+        logger.info("Ссылки собираются для %s района", k)
+        urls: set[str] = get_urls_apartments(driver, base_url, params, 0, 200)
+        save_to_txt(urls, f"{k}_urls_{len(urls)}.txt")
+    logger.info("Сбор данных для районов закончен")
+
+
 if __name__ == "__main__":
     web_driver_setup = WebDriverSetup(headless=False)
     driver: WebDriver = web_driver_setup.setup_driver()
 
     base_url: str = "https://orenburg.domclick.ru/search?"
+    zones: dict[str, int] = {
+        "дзержиский": 40840272,
+        "промышленный": 40842569,
+        "ленинский": 40842379,
+        "центральный": 40842421,
+    }
     params: dict[str, Any] = {
         "deal_type": "sale",
         "category": "living",
@@ -192,6 +210,8 @@ if __name__ == "__main__":
 
     cookies_accepted = False
 
+    get_urls_zones(driver, params, zones, base_url)
+    exit()
     try:
         if os.path.isfile("urls.txt"):
             logger.info("Чтение ссылок из файла urls.txt")
