@@ -1,3 +1,4 @@
+import csv
 from logging import Logger
 import os
 import re
@@ -188,6 +189,27 @@ def get_urls_zones(
     logger.info("Сбор данных для районов закончен")
 
 
+def save_to_csv(data_list: list[dict[str, Any]], filename: str) -> None:
+    if not data_list:
+        logger.warning("Нет данных для сохранения в CSV")
+        return
+
+    # Собираем все уникальные ключи
+    keys = set()
+    for data in data_list:
+        keys.update(data.keys())
+
+    try:
+        with open(filename, "w", newline="", encoding="utf-8") as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=keys)
+            writer.writeheader()
+            for data in data_list:
+                writer.writerow(data)
+        logger.info("Данные сохранены в CSV файл %s", filename)
+    except Exception as e:
+        logger.error("Ошибка при сохранении данных в CSV файл: %s", e)
+
+
 if __name__ == "__main__":
     web_driver_setup = WebDriverSetup(headless=False)
     driver: WebDriver = web_driver_setup.setup_driver()
@@ -209,7 +231,9 @@ if __name__ == "__main__":
     }
 
     cookies_accepted = False
-    filename = "ленинский_urls_200.txt"
+    filename = "дзержинский_urls_200.txt"
+    csv_filename = "apartments_data.csv"
+    all_data = []
 
     try:
         if os.path.isfile(filename):
@@ -228,8 +252,6 @@ if __name__ == "__main__":
                     EC.presence_of_element_located((By.CLASS_NAME, "OzY5o"))
                 )
 
-                data = {}
-
                 if not cookies_accepted:
                     accept_cookie_button = driver.find_element(
                         By.XPATH, "//button[@data-e2e-id='cookie-alert-accept']"
@@ -237,18 +259,20 @@ if __name__ == "__main__":
                     accept_cookie_button.click()
                     time.sleep(1)
                     cookies_accepted = True
+
                 data = {
                     "Ссылка": url,
                 }
                 data.update(get_price(driver))
                 data.update(get_about_apartments(driver))
                 data.update(get_building_info(driver))
-                if any(filename.startswith(x) for x in zones):
-                    data.update({"Район": f"{filename.split('_', maxsplit=1)[0]}"})
-                print(data)
+                all_data.append(data)
+                logger.info("Данные для квартиры по ссылке %s собраны", url)
 
             except Exception as e:
                 logger.error("Ошибка при обработке ссылки на квартиру %s: %s", url, e)
+
+        save_to_csv(all_data, csv_filename)
 
     except Exception as e:
         logger.critical("Произошла ошибка: %s", e)
