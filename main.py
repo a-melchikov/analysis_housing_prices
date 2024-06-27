@@ -210,6 +210,10 @@ def save_to_csv(data_list: list[dict[str, Any]], filename: str) -> None:
         logger.error("Ошибка при сохранении данных в CSV файл: %s", e)
 
 
+def find_files(pattern: str) -> list[str]:
+    return [f for f in os.listdir() if re.match(pattern, f)]
+
+
 if __name__ == "__main__":
     web_driver_setup = WebDriverSetup(headless=False)
     driver: WebDriver = web_driver_setup.setup_driver()
@@ -231,8 +235,9 @@ if __name__ == "__main__":
     }
 
     cookies_accepted = False
-    filename = "дзержинский_urls_200.txt"
-    csv_filename = "apartments_data.csv"
+    zone = "центральный"
+    filename = f"{zone}_urls_200.txt"
+    csv_filename = f"{zone}_apartments_data.csv"
     all_data = []
 
     try:
@@ -266,6 +271,8 @@ if __name__ == "__main__":
                 data.update(get_price(driver))
                 data.update(get_about_apartments(driver))
                 data.update(get_building_info(driver))
+                if any(filename.startswith(x) for x in zones):
+                    data.update({"Район": f"{filename.split('_', maxsplit=1)[0]}"})
                 all_data.append(data)
                 logger.info("Данные для квартиры по ссылке %s собраны", url)
 
