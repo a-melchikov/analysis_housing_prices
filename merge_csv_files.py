@@ -22,7 +22,8 @@ def filter_and_save_columns(df, columns, output_file):
     # Оставление только нужных колонок
     filtered_df = df[columns]
 
-    filtered_df.to_csv(output_file, index=False)
+    filtered_df.to_csv(output_file, index=False, sep=";")
+
     print(f"Фильтрованные данные сохранены в {output_file}")
 
 
